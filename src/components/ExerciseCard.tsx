@@ -18,6 +18,22 @@ const getExerciseWeightKey = (exercise: Exercise): string => {
   return `weight-${normalized}`;
 };
 
+// Parse rest time string (e.g., "1.5 min", ".5 min", "1 min") to seconds
+const parseRestTime = (restTime: string): number => {
+  const match = restTime.match(/^(\d*\.?\d+)\s*min/);
+  if (match) {
+    return Math.round(parseFloat(match[1]) * 60);
+  }
+  return 60; // default 1 minute
+};
+
+// Format seconds to MM:SS
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 export const ExerciseCard = ({ exercise, isFirstOfBodypart = false }: ExerciseCardProps) => {
   const { getLatestLog, updateLatestLog, isExerciseComplete, toggleExerciseComplete } = useWeightLog();
   
@@ -30,6 +46,10 @@ export const ExerciseCard = ({ exercise, isFirstOfBodypart = false }: ExerciseCa
   
   const [weight, setWeight] = useState<string>(latestLog?.weight?.toString() || '');
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // Rest timer state
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(0);
 
   // Check if this is an Abs exercise (no weight needed)
   const isAbsExercise = exercise.bodypart.toLowerCase() === 'abs';
@@ -40,6 +60,27 @@ export const ExerciseCard = ({ exercise, isFirstOfBodypart = false }: ExerciseCa
       setWeight(latestLog.weight.toString());
     }
   }, [latestLog?.weight]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (!isTimerRunning || timeRemaining <= 0) return;
+    
+    const interval = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          setIsTimerRunning(false);
+          // Vibrate phone when timer completes (if supported)
+          if (navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]); // vibrate pattern
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isTimerRunning, timeRemaining]);
 
   const handleWeightChange = (value: string) => {
     // Only allow numbers and decimal point
@@ -70,6 +111,19 @@ export const ExerciseCard = ({ exercise, isFirstOfBodypart = false }: ExerciseCa
     toggleExerciseComplete(exercise.id);
   };
 
+  const handleRestTimer = () => {
+    if (isTimerRunning) {
+      // Cancel timer if already running
+      setIsTimerRunning(false);
+      setTimeRemaining(0);
+    } else {
+      // Start timer
+      const seconds = parseRestTime(exercise.restTime || '1 min');
+      setTimeRemaining(seconds);
+      setIsTimerRunning(true);
+    }
+  };
+
   return (
     <div className="space-y-0">
       {/* Body part header */}
@@ -85,7 +139,9 @@ export const ExerciseCard = ({ exercise, isFirstOfBodypart = false }: ExerciseCa
       <div className={`bg-card rounded-lg p-4 border transition-all duration-200 ${
         isComplete 
           ? 'border-success/50 bg-success/5' 
-          : 'border-border'
+          : isTimerRunning
+            ? 'border-gold/50 bg-gold/5'
+            : 'border-border'
       }`}>
         {/* Exercise name and details */}
         <div className="flex items-start justify-between gap-3">
@@ -107,11 +163,38 @@ export const ExerciseCard = ({ exercise, isFirstOfBodypart = false }: ExerciseCa
           </button>
 
           <div className="flex-1 min-w-0">
-            <h4 className={`font-medium leading-tight transition-colors ${
-              isComplete ? 'text-text-muted line-through' : 'text-text'
-            }`}>
-              {exercise.name}
-            </h4>
+            {/* Exercise name with rest button */}
+            <div className="flex items-center gap-2">
+              <h4 className={`font-medium leading-tight transition-colors ${
+                isComplete ? 'text-text-muted line-through' : 'text-text'
+              }`}>
+                {exercise.name}
+              </h4>
+              
+              {/* Rest Timer Button */}
+              {exercise.restTime && (
+                <button
+                  onClick={handleRestTimer}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
+                    isTimerRunning
+                      ? 'bg-gold text-charcoal animate-pulse shadow-gold/30'
+                      : 'bg-gold/90 hover:bg-gold text-charcoal hover:shadow-gold/40 active:scale-95'
+                  }`}
+                  aria-label={isTimerRunning ? 'Cancel rest timer' : 'Start rest timer'}
+                >
+                  {isTimerRunning ? (
+                    <span className="font-mono font-bold text-base">{formatTime(timeRemaining)}</span>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>REST</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
             
             {/* Sets x Reps */}
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted">
