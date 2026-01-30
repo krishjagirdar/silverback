@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Day } from '../types/workout';
 import { getBodyPartsForDay } from '../data/workoutData';
 import { useWeightLog } from '../hooks/WeightLogContext';
+import { estimateCalories } from '../utils/calories';
 
 interface DayCardProps {
   day: Day;
@@ -29,6 +30,7 @@ export const DayCard = ({ day, phaseId, weekNumber }: DayCardProps) => {
 
   // Estimate workout duration (total rest time + ~30 sec per set for actual work)
   const estimatedMinutes = Math.round(day.totalRestTime + (day.totalSets * 0.5));
+  const estimatedCals = estimateCalories(estimatedMinutes, day.totalSets);
 
   return (
     <button
@@ -83,6 +85,13 @@ export const DayCard = ({ day, phaseId, weekNumber }: DayCardProps) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               ~{estimatedMinutes} min
+            </span>
+            <span className="flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+              </svg>
+              ~{estimatedCals} cal
             </span>
           </div>
 
